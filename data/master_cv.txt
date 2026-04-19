@@ -1,0 +1,28 @@
+JANE DOE
+jane.doe@email.com | linkedin.com/in/janedoe | github.com/janedoe | +1 555 000 0000
+
+SUMMARY
+Results-driven software engineer with 5+ years of experience building scalable web applications.
+Passionate about clean code, developer experience, and shipping products users love.
+
+EXPERIENCE
+
+Senior Software Engineer — Acme Corp (2021–Present)
+- Led migration of monolithic backend to microservices, reducing deploy time by 40%.
+- Designed and implemented REST and GraphQL APIs consumed by 3 front-end teams.
+- Mentored 4 junior engineers through code reviews and weekly 1-on-1s.
+- Improved CI/CD pipeline reliability from 82% to 98% pass rate.
+
+Software Engineer — Startup XYZ (2019–2021)
+- Built real-time dashboard using React and WebSockets serving 50,000 daily active users.
+- Reduced page load time by 35% through lazy loading and CDN configuration.
+- Collaborated with product and design to ship 12 features in 18 months.
+
+EDUCATION
+B.Sc. Computer Science — State University (2019)
+
+SKILLS
+Python, JavaScript/TypeScript, React, Node.js, PostgreSQL, Redis, Docker, Kubernetes, AWS, Git
+
+CERTIFICATIONS
+AWS Certified Solutions Architect – Associate (2023)
