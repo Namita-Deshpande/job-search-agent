@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install *)",
+      "Bash(streamlit run *)",
+      "Bash(python -m streamlit run app.py)",
+      "Bash(where python *)",
+      "Read(//c/Users/NAMITA/AppData/Local/Programs/Python/Python313/**)",
+      "Bash(\"/c/Users/NAMITA/AppData/Local/Programs/Python/Python313/python.exe\" -m streamlit run app.py)",
+      "Bash(\"/c/Users/NAMITA/AppData/Local/Programs/Python/Python313/python.exe\" -m streamlit run app.py --browser.gatherUsageStats false --server.headless true)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(python *)",
+      "Bash(/c/Users/NAMITA/AppData/Local/Programs/Python/Python313/python *)",
+      "Bash(export PATH=\"/c/Users/NAMITA/AppData/Local/Programs/Python/Python313:$PATH\")"
+    ]
+  }
+}
