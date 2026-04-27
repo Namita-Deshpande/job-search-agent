@@ -22,6 +22,7 @@ from agents.tracker_agent import (
 )
 from agents.sourcer_agent import search_jobs
 from agents.coach_agent import create_session, generate_prep, get_feedback, save_session
+from agents.email_agent import build_digest_data, build_html_email, load_email_log, score_pipeline_health, send_digest
 
 st.set_page_config(
     page_title="Job Search Command Centre",
@@ -420,6 +421,61 @@ with tab2:
                     if del_clicked:
                         delete_application(app["id"])
                         st.rerun()
+
+    # ── Email Digest ──────────────────────────────────────────────────────────
+    st.divider()
+    st.subheader("📧 Email Digest")
+    st.caption("This can be automated weekly — currently manual trigger")
+
+    email_log = load_email_log()
+    last_sent = email_log.get("last_sent", {})
+    if last_sent.get("sent_at"):
+        try:
+            ts = datetime.fromisoformat(last_sent["sent_at"]).strftime("%b %d, %Y at %H:%M")
+        except Exception:
+            ts = last_sent["sent_at"]
+        st.info(f"Last sent: **{ts}** → {last_sent.get('to', '')}")
+
+    all_apps_for_digest = load_applications()
+    if all_apps_for_digest:
+        digest_data = build_digest_data(all_apps_for_digest)
+        with st.expander("Preview email content"):
+            c1, c2 = st.columns(2)
+            with c1:
+                st.markdown(f"**Total applications:** {digest_data['total']}")
+                st.markdown(f"**This week:** {digest_data['this_week']}  |  **Last week:** {digest_data['last_week']}")
+                st.markdown("**By status:**")
+                for s, c in sorted(digest_data["status_counts"].items(), key=lambda x: -x[1]):
+                    st.markdown(f"- {s}: {c}")
+            with c2:
+                if digest_data["upcoming"]:
+                    st.markdown("**Active screens / interviews:**")
+                    for a in digest_data["upcoming"]:
+                        st.markdown(f"- {a['company']} — {a['role']}")
+                if digest_data["stale"]:
+                    st.markdown("**Follow-up needed (7+ days stale):**")
+                    for a in digest_data["stale"][:5]:
+                        st.markdown(f"- {a['company']} — {a['role']}")
+
+    email_ready = bool(
+        os.getenv("EMAIL_SENDER") and os.getenv("EMAIL_PASSWORD") and os.getenv("EMAIL_RECEIVER")
+    )
+    if not email_ready:
+        st.warning(
+            "Add **EMAIL_SENDER**, **EMAIL_PASSWORD**, and **EMAIL_RECEIVER** to your `.env` file to enable sending."
+        )
+
+    if st.button("Send Weekly Digest Now", type="primary", disabled=not email_ready or not all_apps_for_digest):
+        with st.spinner("Scoring pipeline and sending email…"):
+            try:
+                result = send_digest(all_apps_for_digest)
+                h = result["health"]
+                st.success(
+                    f"Email sent! Pipeline health: **{h['score']}/100** — {h['advice']}"
+                )
+                st.rerun()
+            except Exception as exc:
+                st.error(f"Failed to send: {exc}")
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
