@@ -1,4 +1,5 @@
 import io
+import os
 from pathlib import Path
 
 import streamlit as st
@@ -16,6 +17,7 @@ from agents.tracker_agent import (
     load_applications,
     update_application,
 )
+from agents.sourcer_agent import search_jobs
 
 st.set_page_config(
     page_title="Job Search Command Centre",
@@ -76,7 +78,7 @@ def _status_color(status: str) -> str:
 
 st.title("💼 Job Search Command Centre")
 
-tab1, tab2 = st.tabs(["✨ Tailor CV", "📋 Track Applications"])
+tab1, tab2, tab3 = st.tabs(["✨ Tailor CV", "📋 Track Applications", "🔍 Source Jobs"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -302,3 +304,146 @@ with tab2:
                     if del_clicked:
                         delete_application(app["id"])
                         st.rerun()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 3 — Source Jobs
+# ═══════════════════════════════════════════════════════════════════════════════
+_DEFAULT_TITLES = ["AI Engineer", "Automation Engineer", "ML Engineer", "Python Developer"]
+
+with tab3:
+    st.caption("Sourcer Agent — find new roles from Adzuna and Arbeitnow")
+
+    adzuna_ready = bool(os.getenv("ADZUNA_APP_ID") and os.getenv("ADZUNA_API_KEY"))
+    if not adzuna_ready:
+        st.warning(
+            "Adzuna API keys not found. Add **ADZUNA_APP_ID** and **ADZUNA_API_KEY** "
+            "to your `.env` file to include Adzuna results. Arbeitnow will still run."
+        )
+
+    # ── Search config form ────────────────────────────────────────────────────
+    with st.form("sourcer_form"):
+        selected_titles = st.multiselect(
+            "Job Titles",
+            options=_DEFAULT_TITLES,
+            default=_DEFAULT_TITLES,
+        )
+        keywords_raw = st.text_input(
+            "Keywords (comma-separated)",
+            placeholder="e.g. LLM, FastAPI, Docker, NLP",
+        )
+        location = st.radio(
+            "Location",
+            ["Berlin", "Remote", "Both"],
+            index=2,
+            horizontal=True,
+        )
+        run_search = st.form_submit_button("🔍 Run Search", type="primary")
+
+    if run_search:
+        if not selected_titles:
+            st.error("Select at least one job title.")
+        else:
+            keywords = [k.strip() for k in keywords_raw.split(",") if k.strip()]
+            with st.spinner("Searching Adzuna and Arbeitnow — this may take ~20 seconds…"):
+                try:
+                    jobs, stats = search_jobs(selected_titles, keywords, location)
+                    st.session_state["_sourcer_results"] = jobs
+                    st.session_state["_sourcer_stats"] = stats
+                    st.session_state["_added_jobs"] = set()
+                except Exception as exc:
+                    st.error(f"Search failed: {exc}")
+
+    # ── Results ───────────────────────────────────────────────────────────────
+    if "_sourcer_results" in st.session_state:
+        jobs = st.session_state["_sourcer_results"]
+        stats = st.session_state["_sourcer_stats"]
+        added_jobs: set = st.session_state.get("_added_jobs", set())
+
+        st.divider()
+        st.markdown(
+            f"**{len(jobs)} new jobs found** &nbsp;·&nbsp; {stats['skipped_duplicates']} duplicates skipped",
+            unsafe_allow_html=True,
+        )
+
+        # ── Debug panel ───────────────────────────────────────────────────────
+        with st.expander("🐛 Debug info"):
+            app_id = os.getenv("ADZUNA_APP_ID", "")
+            api_key = os.getenv("ADZUNA_API_KEY", "")
+            st.markdown("**API keys**")
+            st.write(
+                f"ADZUNA_APP_ID: `{app_id[:4]}…`" if app_id else "ADZUNA_APP_ID: ❌ not set"
+            )
+            st.write(
+                f"ADZUNA_API_KEY: `{api_key[:4]}…`" if api_key else "ADZUNA_API_KEY: ❌ not set"
+            )
+            st.markdown("**Fetch counts**")
+            st.write(f"Adzuna raw jobs fetched: **{stats['adzuna_raw']}**")
+            st.write(f"Arbeitnow raw jobs fetched: **{stats['arbeitnow_raw']}**")
+            st.write(f"New (not seen before): **{stats['new_count']}**")
+            st.write(f"Skipped as duplicates: **{stats['skipped_duplicates']}**")
+            st.write(f"Scored below threshold: **{stats['below_threshold']}**")
+            st.markdown("**Score threshold**")
+            from agents.sourcer_agent import MIN_SCORE
+            st.write(f"Current MIN_SCORE = **{MIN_SCORE}**")
+            st.markdown("**Reset seen-jobs cache**")
+            st.caption("Clears data/seen_jobs.json so all jobs appear fresh on next search.")
+            if st.button("🗑️ Clear seen-jobs cache"):
+                from pathlib import Path as _P
+                _P("data/seen_jobs.json").unlink(missing_ok=True)
+                st.session_state.pop("_sourcer_results", None)
+                st.session_state.pop("_sourcer_stats", None)
+                st.rerun()
+
+        if not jobs:
+            st.info("No jobs above the score threshold this run. Try broadening your keywords or location.")
+        else:
+            st.write("")
+            for i, job in enumerate(jobs):
+                score = job["score"]
+                badge_color = "#2ecc71" if score >= 80 else ("#f39c12" if score >= 60 else "#e74c3c")
+
+                score_col, info_col = st.columns([1, 7])
+
+                with score_col:
+                    st.markdown(
+                        f'<div style="background:{badge_color};color:#fff;text-align:center;'
+                        f'padding:14px 0;border-radius:8px;font-size:1.5rem;font-weight:700;">'
+                        f'{score}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                with info_col:
+                    title_line = (
+                        f"**[{job['title']}]({job['url']})** &nbsp; — &nbsp; {job['company']}"
+                        if job.get("url") else f"**{job['title']}** — {job['company']}"
+                    )
+                    st.markdown(title_line, unsafe_allow_html=True)
+
+                    meta_parts = [job.get("location", ""), job.get("salary", ""), job.get("date_posted", "")]
+                    meta = "  ·  ".join(p for p in meta_parts if p)
+                    source_badge = (
+                        f'<span style="background:#1E3A5F;color:#fff;padding:1px 8px;'
+                        f'border-radius:10px;font-size:0.75em;">{job["source"]}</span>'
+                    )
+                    st.markdown(
+                        f'<span style="color:#888;font-size:0.85em;">{meta}</span> &nbsp; {source_badge}',
+                        unsafe_allow_html=True,
+                    )
+
+                    url = job.get("url", "")
+                    if url in added_jobs:
+                        st.markdown("**✓ Added to Tracker**")
+                    else:
+                        if st.button("➕ Add to Tracker", key=f"add_{i}"):
+                            add_application(
+                                company=job["company"],
+                                role=job["title"],
+                                url=url,
+                                status="Wishlist",
+                            )
+                            added_jobs.add(url)
+                            st.session_state["_added_jobs"] = added_jobs
+                            st.rerun()
+
+                st.divider()
