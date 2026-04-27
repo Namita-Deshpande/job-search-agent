@@ -1,6 +1,7 @@
 import io
 import os
 import re
+import streamlit.components.v1 as components
 from datetime import datetime
 from pathlib import Path
 
@@ -63,6 +64,71 @@ def _score_color(score: int) -> str:
     return "#e74c3c"
 
 
+_UI_WORDS = frozenset({
+    "logo", "share", "show more", "promoted", "applied", "premium",
+    "linkedin", "followers", "connections", "easy apply", "save",
+    "report", "applicant", "active", "hiring", "recruiter",
+    "open to work", "verified", "follow", "dismiss",
+    "hours ago", "days ago", "week ago", "month ago",
+})
+
+_TITLE_WORDS = frozenset({
+    "engineer", "developer", "manager", "analyst", "designer",
+    "senior", "junior", "lead", "specialist", "consultant",
+    "director", "head of", "architect", "scientist", "devops",
+    "frontend", "backend", "fullstack", "full stack",
+    "researcher", "intern", "coordinator",
+})
+
+_NOT_COMPANY = frozenset({
+    "about", "description", "overview", "summary", "responsibilities",
+    "requirements", "qualifications", "benefits", "location", "salary",
+    "remote", "hybrid", "contract", "permanent",
+})
+
+
+def _clean_jd_line(line: str) -> str:
+    line = re.sub(r'\s*[·•|]\s*.*$', '', line)   # strip " · Hybrid" etc.
+    line = re.sub(r'\s*\(.*?\)\s*$', '', line)    # strip trailing "(Remote)"
+    return re.sub(r'\s+', ' ', line).strip()
+
+
+def _is_ui_line(line: str) -> bool:
+    ll = line.lower()
+    return (
+        any(w in ll for w in _UI_WORDS)
+        or bool(re.search(r'https?://|www\.', ll))
+        or bool(re.match(r'^\d', line.strip()))
+    )
+
+
+def _extract_company_from_jd(jd: str) -> str:
+    for line in jd.splitlines()[:20]:
+        line = line.strip()
+        if not line or len(line) > 60:
+            continue
+        if _is_ui_line(line):
+            continue
+        ll = line.lower()
+        if any(w in ll for w in _TITLE_WORDS):
+            break   # reached the job title — stop looking
+        if any(w in ll for w in _NOT_COMPANY):
+            continue
+        if line[0].isupper():
+            return _clean_jd_line(line)[:60]
+    return ""
+
+
+def _extract_role_from_jd(jd: str) -> str:
+    for line in jd.splitlines()[:30]:
+        line = line.strip()
+        if not line or len(line) > 120 or _is_ui_line(line):
+            continue
+        if any(w in line.lower() for w in _TITLE_WORDS):
+            return _clean_jd_line(line)[:80]
+    return ""
+
+
 def _status_color(status: str) -> str:
     return {
         "Wishlist":     "#6c757d",
@@ -82,6 +148,17 @@ def _status_color(status: str) -> str:
 st.title("💼 Job Search Command Centre")
 
 tab1, tab2, tab3, tab4 = st.tabs(["✨ Tailor CV", "📋 Track Applications", "🔍 Source Jobs", "🎯 Interview Coach"])
+
+# Programmatic tab switching — fired once on the render after a connection button click
+if "_switch_tab" in st.session_state:
+    _tab_idx = st.session_state.pop("_switch_tab")
+    components.html(
+        f"<script>setTimeout(function(){{"
+        f"var t=window.parent.document.querySelectorAll('button[data-baseweb=\"tab\"]');"
+        f"if(t[{_tab_idx}])t[{_tab_idx}].click();}},"
+        f"300);</script>",
+        height=0,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -125,6 +202,7 @@ with tab1:
         st.info("Upload a CV **and** paste a job description to enable generation.")
 
     if st.button("✨ Generate Tailored CV", disabled=not ready, type="primary"):
+        st.session_state.pop("_tailor_done", None)
         with st.spinner("Claude is tailoring your CV — this takes ~15 seconds…"):
             try:
                 result = tailor_cv(cv_text, job_desc)
@@ -185,6 +263,20 @@ with tab1:
         else:
             st.warning("Could not locate the generated .docx file.")
 
+        st.session_state["_tailor_done"] = True
+        st.session_state["_tailor_jd"] = job_desc
+
+    # ── Connection: Tailor → Tracker ──────────────────────────────────────────
+    if st.session_state.get("_tailor_done"):
+        if st.button("✅ Log this application in Tracker →", key="tailor_to_tracker"):
+            _jd = st.session_state.get("_tailor_jd", "")
+            st.session_state.pop("_tailor_done", None)
+            st.session_state["tracker_prefill_company"] = _extract_company_from_jd(_jd)
+            st.session_state["tracker_prefill_role"] = _extract_role_from_jd(_jd)
+            st.session_state["tracker_prefill_jd"] = _jd
+            st.session_state["_switch_tab"] = 1
+            st.rerun()
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 2 — Track Applications
@@ -225,20 +317,34 @@ with tab2:
     st.divider()
 
     # ── Add Application ───────────────────────────────────────────────────────
-    with st.expander("➕ Add Application"):
+    if "tracker_prefill_company" in st.session_state:
+        st.session_state["_t_pre"] = {
+            "company": st.session_state.pop("tracker_prefill_company"),
+            "role": st.session_state.pop("tracker_prefill_role", ""),
+            "jd": st.session_state.pop("tracker_prefill_jd", ""),
+        }
+
+    _t_pre = st.session_state.get("_t_pre", {})
+    if _t_pre:
+        st.info("Application pre-loaded from Tailor — fill in remaining details and save")
+
+    with st.expander("➕ Add Application", expanded=bool(_t_pre)):
         with st.form("add_form", clear_on_submit=True):
             fc1, fc2 = st.columns(2)
             with fc1:
-                new_company = st.text_input("Company *")
+                new_company = st.text_input("Company *", value=_t_pre.get("company", ""))
+                if _t_pre:
+                    st.caption("Auto-extracted — please verify")
                 new_status = st.selectbox("Status", STATUSES, index=1)
                 new_salary = st.text_input("Salary Range", placeholder="e.g. £50k–£65k")
             with fc2:
-                new_role = st.text_input("Role *")
+                new_role = st.text_input("Role *", value=_t_pre.get("role", ""))
                 new_date = st.date_input("Date Applied")
                 new_url = st.text_input("Job URL")
             new_notes = st.text_area("Notes", height=80)
 
             if st.form_submit_button("Add Application", type="primary"):
+                st.session_state.pop("_t_pre", None)
                 if not new_company.strip() or not new_role.strip():
                     st.error("Company and Role are required.")
                 else:
@@ -250,6 +356,7 @@ with tab2:
                         date_applied=str(new_date),
                         salary_range=new_salary.strip(),
                         notes=new_notes.strip(),
+                        job_description=_t_pre.get("jd", ""),
                     )
                     st.rerun()
 
@@ -282,6 +389,12 @@ with tab2:
                     st.write(f"**Salary:** {app['salary_range']}")
                 if app.get("url"):
                     st.markdown(f"[View Job Posting]({app['url']})")
+                if status in ("Interview", "Technical Test"):
+                    if st.button("🎯 Prep for Interview →", key=f"prep_{app['id']}"):
+                        st.session_state["coach_prefill_company"] = app["company"]
+                        st.session_state["coach_prefill_jd"] = app.get("job_description", "")
+                        st.session_state["_switch_tab"] = 3
+                        st.rerun()
 
             with edit_col:
                 with st.form(key=f"edit_{app['id']}"):
@@ -461,16 +574,28 @@ with tab4:
     # ── SECTION 1: Prep generation ────────────────────────────────────────────
     st.subheader("Generate Interview Prep")
 
+    if "coach_prefill_company" in st.session_state:
+        st.session_state["_c_pre"] = {
+            "company": st.session_state.pop("coach_prefill_company"),
+            "jd": st.session_state.pop("coach_prefill_jd", ""),
+        }
+
+    _c_pre = st.session_state.get("_c_pre", {})
+    if _c_pre:
+        st.info("Loaded from Tracker — paste the job description and click Generate Prep")
+
     with st.form("coach_prep_form"):
-        coach_company = st.text_input("Company name", placeholder="e.g. Zalando")
+        coach_company = st.text_input("Company name", value=_c_pre.get("company", ""), placeholder="e.g. Zalando")
         coach_jd = st.text_area(
             "Job description",
+            value=_c_pre.get("jd", ""),
             height=220,
             placeholder="Paste the full job posting here…",
         )
         prep_submitted = st.form_submit_button("Generate Prep", type="primary")
 
     if prep_submitted:
+        st.session_state.pop("_c_pre", None)
         if not coach_company.strip() or not coach_jd.strip():
             st.error("Enter both a company name and a job description.")
         else:

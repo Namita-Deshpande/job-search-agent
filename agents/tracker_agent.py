@@ -60,6 +60,7 @@ def add_application(
     date_applied: str = "",
     salary_range: str = "",
     notes: str = "",
+    job_description: str = "",
 ) -> dict:
     apps = load_applications()
     now = datetime.now().isoformat()
@@ -72,6 +73,7 @@ def add_application(
         "date_applied": date_applied or str(date.today()),
         "salary_range": salary_range,
         "notes": notes,
+        "job_description": job_description,
         "created_at": now,
         "updated_at": now,
     }
