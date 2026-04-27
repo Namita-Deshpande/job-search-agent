@@ -30,6 +30,25 @@ st.set_page_config(
     layout="wide",
 )
 
+# ── Auth gate ─────────────────────────────────────────────────────────────────
+if not st.session_state.get("authenticated"):
+    st.markdown(
+        "<div style='max-width:320px;margin:15vh auto 0'>",
+        unsafe_allow_html=True,
+    )
+    st.title("💼 Job Search Command Centre")
+    pwd = st.text_input("Password", type="password", label_visibility="collapsed",
+                        placeholder="Enter password")
+    if st.button("Enter", type="primary", use_container_width=True):
+        if pwd == os.getenv("APP_PASSWORD", ""):
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Incorrect password")
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
