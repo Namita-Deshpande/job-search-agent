@@ -1,0 +1,25 @@
+[
+  {
+    "id": "3925ee12-c13c-43eb-8cc9-ab18bdc4a1a9",
+    "company": "Hannover RE",
+    "role": "AI Adoption Engineer",
+    "date": "2026-04-27",
+    "questions": {
+      "technical": [
+        "Walk me through how you would design a Copilot agent in Copilot Studio for a specific business process in insurance or finance. What governance and security measures would you implement from the start?",
+        "Describe your experience with Microsoft Power Platform (Power Apps, Power Automate, Power BI) in the context of citizen AI solutions. How would you measure adoption and impact using these tools?",
+        "How do you approach explaining generative AI, prompt engineering, and large language model limitations to non-technical stakeholders? Give an example of a complex concept you've made accessible.",
+        "What frameworks or methodologies have you used to define and track KPIs for digital tool adoption? How would you measure the success of a global Microsoft 365 Copilot rollout?",
+        "Tell me about a time you scaled a citizen AI or low-code solution across multiple business units. What technical and organizational challenges did you face, and how did you address security and compliance?"
+      ],
+      "behavioural": [
+        "Describe a situation where you had to drive adoption of a new technology that met initial resistance from employees. What approach did you take, and what was the outcome?",
+        "Tell me about a time when you had to communicate a complex AI or technical concept to a C-suite or non-technical executive audience. How did you structure your message, and how did they respond?",
+        "Share an example of when you worked in a self-organized, consensus-driven team without a traditional hierarchy. How did you navigate decision-making, and what was a key challenge?",
+        "Describe a project where you had to balance rapid innovation with governance and security requirements. How did you ensure both were met without slowing adoption?",
+        "Tell me about a time when an adoption program or champion network initiative underperformed. What did you learn, and how did you adjust your strategy?"
+      ]
+    },
+    "history": []
+  }
+]

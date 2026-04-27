@@ -10,5 +10,53 @@
     "notes": "This is a role for AI and Business Analysis role which is very similar to the kind of work I have been doing. Its a mixture of AI and Automation role. Sent Cover Letter as well.",
     "created_at": "2026-04-26T14:30:44.418868",
     "updated_at": "2026-04-26T14:30:44.418868"
+  },
+  {
+    "id": "9bb82b9b-d589-4446-8482-c91c9a23d894",
+    "company": "Hannover RE",
+    "role": "AI Adoption Engineer",
+    "url": "https://jobs.hannover-re.com/job/Hannover-AI-Adoption-Engineer-mit-Deutschkenntnissen/1348838855/?feedId=352855",
+    "status": "Phone Screen",
+    "date_applied": "2026-04-14",
+    "salary_range": "55000 Euros",
+    "notes": "Have applied for this job role as it aligns completely with my Job experience and also with my interest. This also requires basic communicational German skills and has 3 rounds of Interview Process. Have completed the 1st round and waiting for the next rounds.",
+    "created_at": "2026-04-26T14:38:47.163332",
+    "updated_at": "2026-04-26T14:38:47.163332"
+  },
+  {
+    "id": "4e2a631f-87e7-4bd2-ab3f-ebd1db9cebd7",
+    "company": "Holtzbrinck",
+    "role": "Graduate Trainee Engineer",
+    "url": "",
+    "status": "Applied",
+    "date_applied": "2026-04-22",
+    "salary_range": "55000",
+    "notes": "This is a Graduate Trainee AI Program which is for 2 years in which have to work and learn on multiple projects initially and then continue later. Applied with the cover letter",
+    "created_at": "2026-04-26T14:46:01.007226",
+    "updated_at": "2026-04-26T14:46:01.007226"
+  },
+  {
+    "id": "60665a5f-6798-4db2-9c75-26c9319b70e8",
+    "company": "HansVision",
+    "role": "Microsoft Power Platform and Automation AI",
+    "url": "",
+    "status": "Applied",
+    "date_applied": "2026-04-23",
+    "salary_range": "55000",
+    "notes": "This requires German skills strictly and have applied for B1 german skills. The profile looks interesting and matches with my interests. Its located in Hamburg.",
+    "created_at": "2026-04-26T14:49:02.619321",
+    "updated_at": "2026-04-26T14:49:02.619321"
+  },
+  {
+    "id": "0367998e-e048-461e-bfaf-21c82d37627f",
+    "company": "Siemens Energy",
+    "role": "Graduate Trainee Program",
+    "url": "",
+    "status": "Rejected",
+    "date_applied": "2026-04-09",
+    "salary_range": "55000",
+    "notes": "",
+    "created_at": "2026-04-26T14:50:11.248398",
+    "updated_at": "2026-04-26T14:50:11.248398"
   }
 ]

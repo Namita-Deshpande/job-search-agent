@@ -1,5 +1,7 @@
 import io
 import os
+import re
+from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
@@ -18,6 +20,7 @@ from agents.tracker_agent import (
     update_application,
 )
 from agents.sourcer_agent import search_jobs
+from agents.coach_agent import create_session, generate_prep, get_feedback, save_session
 
 st.set_page_config(
     page_title="Job Search Command Centre",
@@ -78,7 +81,7 @@ def _status_color(status: str) -> str:
 
 st.title("💼 Job Search Command Centre")
 
-tab1, tab2, tab3 = st.tabs(["✨ Tailor CV", "📋 Track Applications", "🔍 Source Jobs"])
+tab1, tab2, tab3, tab4 = st.tabs(["✨ Tailor CV", "📋 Track Applications", "🔍 Source Jobs", "🎯 Interview Coach"])
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -447,3 +450,163 @@ with tab3:
                             st.rerun()
 
                 st.divider()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 4 — Interview Coach
+# ═══════════════════════════════════════════════════════════════════════════════
+with tab4:
+    st.caption("Coach Agent — prep and practice for any role")
+
+    # ── SECTION 1: Prep generation ────────────────────────────────────────────
+    st.subheader("Generate Interview Prep")
+
+    with st.form("coach_prep_form"):
+        coach_company = st.text_input("Company name", placeholder="e.g. Zalando")
+        coach_jd = st.text_area(
+            "Job description",
+            height=220,
+            placeholder="Paste the full job posting here…",
+        )
+        prep_submitted = st.form_submit_button("Generate Prep", type="primary")
+
+    if prep_submitted:
+        if not coach_company.strip() or not coach_jd.strip():
+            st.error("Enter both a company name and a job description.")
+        else:
+            with st.spinner("Claude is analysing the role — this takes ~15 seconds…"):
+                try:
+                    prep = generate_prep(coach_company.strip(), coach_jd.strip())
+                    session = create_session(coach_company.strip(), prep["role"], prep)
+                    save_session(session)
+                    st.session_state["_coach_prep"] = prep
+                    st.session_state["_coach_session"] = session
+                    st.session_state.pop("_coach_feedback", None)
+                except Exception as exc:
+                    st.error(f"Prep generation failed: {exc}")
+
+    if "_coach_prep" in st.session_state:
+        prep = st.session_state["_coach_prep"]
+        session = st.session_state["_coach_session"]
+
+        st.success(f"Prep ready — **{prep['role']}** at **{session['company']}**")
+
+        with st.expander("🏢 About the company"):
+            st.write(prep["company_summary"])
+
+        with st.expander("📋 Likely interview rounds"):
+            for i, rnd in enumerate(prep["interview_rounds"], 1):
+                st.write(f"**Round {i}:** {rnd}")
+
+        with st.expander("⚙️ Technical questions"):
+            for i, q in enumerate(prep["technical_questions"], 1):
+                st.markdown(f"**{i}.** {q}")
+
+        with st.expander("🧠 Behavioural questions (STAR)"):
+            for i, q in enumerate(prep["behavioural_questions"], 1):
+                st.markdown(f"**{i}.** {q}")
+
+        with st.expander("❓ Questions to ask the interviewer"):
+            for i, q in enumerate(prep["questions_to_ask"], 1):
+                st.markdown(f"**{i}.** {q}")
+
+        with st.expander("🚩 Red flags to watch for"):
+            for i, rf in enumerate(prep["red_flags"], 1):
+                st.markdown(f"**{i}.** {rf}")
+
+        st.divider()
+
+        # ── SECTION 2: Mock interview ─────────────────────────────────────────
+        st.subheader("Mock Interview")
+
+        q_options = (
+            [f"[Technical] {q}" for q in prep["technical_questions"]]
+            + [f"[Behavioural] {q}" for q in prep["behavioural_questions"]]
+        )
+
+        with st.form("mock_form"):
+            selected_q = st.selectbox("Select a question", q_options)
+            answer_input = st.text_area(
+                "Your answer",
+                height=200,
+                placeholder="Type your answer here…",
+            )
+            feedback_submitted = st.form_submit_button("Get Feedback", type="primary")
+
+        if feedback_submitted:
+            if not answer_input.strip():
+                st.error("Type an answer before submitting.")
+            else:
+                # Strip the "[Technical] " / "[Behavioural] " prefix to get the raw question
+                raw_question = re.sub(r"^\[(?:Technical|Behavioural)\] ", "", selected_q)
+                with st.spinner("Evaluating your answer…"):
+                    try:
+                        feedback = get_feedback(
+                            raw_question,
+                            answer_input.strip(),
+                            session["company"],
+                            session["role"],
+                        )
+                        st.session_state["_coach_feedback"] = {
+                            "question": selected_q,
+                            "feedback": feedback,
+                        }
+                        # Append to session history and persist
+                        session["history"].append({
+                            "question": selected_q,
+                            "score": feedback["score"],
+                            "timestamp": datetime.now().isoformat(),
+                        })
+                        save_session(session)
+                    except Exception as exc:
+                        st.error(f"Feedback failed: {exc}")
+
+        if "_coach_feedback" in st.session_state:
+            fb_data = st.session_state["_coach_feedback"]
+            feedback = fb_data["feedback"]
+            score = feedback["score"]
+            score_color = "#2ecc71" if score >= 80 else ("#f39c12" if score >= 60 else "#e74c3c")
+
+            st.markdown("#### Feedback")
+
+            score_col, bar_col = st.columns([1, 5])
+            with score_col:
+                st.markdown(
+                    f'<div style="font-size:2.4rem;font-weight:700;color:{score_color};">'
+                    f'{score}<span style="font-size:1rem;color:#888;"> / 100</span></div>',
+                    unsafe_allow_html=True,
+                )
+            with bar_col:
+                st.write("")
+                st.progress(score / 100)
+
+            st.markdown("**Strengths**")
+            for s in feedback["strengths"]:
+                st.markdown(f"✓ {s}")
+
+            st.markdown("**Improvements**")
+            for imp in feedback["improvements"]:
+                st.markdown(f"→ {imp}")
+
+            with st.expander("💡 Suggested better answer", expanded=True):
+                st.text_area(
+                    label="better_answer",
+                    value=feedback["better_answer"],
+                    height=200,
+                    label_visibility="collapsed",
+                )
+
+        # ── Session history ───────────────────────────────────────────────────
+        history = st.session_state.get("_coach_session", {}).get("history", [])
+        if history:
+            st.divider()
+            st.markdown("**Session history**")
+            for i, h in enumerate(history, 1):
+                score = h["score"]
+                color = "#2ecc71" if score >= 80 else ("#f39c12" if score >= 60 else "#e74c3c")
+                q_short = h["question"][:80] + ("…" if len(h["question"]) > 80 else "")
+                st.markdown(
+                    f'Q{i}: {q_short} &nbsp; '
+                    f'<span style="color:{color};font-weight:700;">{score}/100</span>',
+                    unsafe_allow_html=True,
+                )
